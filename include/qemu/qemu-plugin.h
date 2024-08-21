@@ -57,11 +57,19 @@ typedef uint64_t qemu_plugin_id_t;
  * - Remove qemu_plugin_register_vcpu_{tb, insn, mem}_exec_inline.
  *   Those functions are replaced by *_per_vcpu variants, which guarantee
  *   thread-safety for operations.
+ *
+ * version 3:
+ * - modified arguments and return value of qemu_plugin_insn_data to copy
+ *   the data into a user-provided buffer instead of returning a pointer
+ *   to the data.
+ *
+ * version 4:
+ * - added qemu_plugin_read_memory_vaddr
  */
 
 extern QEMU_PLUGIN_EXPORT int qemu_plugin_version;
 
-#define QEMU_PLUGIN_VERSION 3
+#define QEMU_PLUGIN_VERSION 4
 
 /**
  * struct qemu_info_t - system information for plugins
@@ -851,6 +859,20 @@ typedef struct {
  */
 QEMU_PLUGIN_API
 GArray *qemu_plugin_get_registers(void);
+
+/**
+ * qemu_plugin_read_memory_vaddr() - read from memory using a virtual address
+ *
+ * @addr: A virtual address to read from
+ * @len: The number of bytes to read, starting from @addr
+ *
+ * Returns a GByteArray with the read memory. Ownership of the GByteArray is
+ * transferred to the caller, which is responsible for deallocating it after
+ * use. On failure returns NULL.
+ */
+QEMU_PLUGIN_API
+GByteArray *qemu_plugin_read_memory_vaddr(uint64_t addr,
+                                          size_t len);
 
 /**
  * qemu_plugin_read_register() - read register for current vCPU

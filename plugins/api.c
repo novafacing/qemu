@@ -527,6 +527,27 @@ GArray *qemu_plugin_get_registers(void)
     return create_register_handles(regs);
 }
 
+GByteArray *qemu_plugin_read_memory_vaddr(vaddr addr, size_t len)
+{
+    g_assert(current_cpu);
+
+    if (len == 0) {
+        return NULL;
+    }
+
+    GByteArray *buf = g_byte_array_sized_new(len);
+    g_byte_array_set_size(buf, len);
+
+    int result = cpu_memory_rw_debug(current_cpu, addr, buf->data, buf->len, 0);
+
+    if (result < 0) {
+        g_byte_array_unref(buf);
+        return NULL;
+    }
+
+    return buf;
+}
+
 int qemu_plugin_read_register(struct qemu_plugin_register *reg, GByteArray *buf)
 {
     g_assert(current_cpu);

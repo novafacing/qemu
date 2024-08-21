@@ -24,7 +24,7 @@ typedef struct {
 static struct qemu_plugin_scoreboard *counts;
 static qemu_plugin_u64 mem_count;
 static qemu_plugin_u64 io_count;
-static bool do_inline, do_callback;
+static bool do_inline, do_callback, do_read;
 static bool do_haddr;
 static enum qemu_plugin_mem_rw rw = QEMU_PLUGIN_MEM_RW;
 
@@ -58,6 +58,30 @@ static void vcpu_mem(unsigned int cpu_index, qemu_plugin_meminfo_t meminfo,
     } else {
         qemu_plugin_u64_add(mem_count, cpu_index, 1);
     }
+
+    if (do_read) {
+        size_t size = qemu_plugin_mem_size_shift(meminfo);
+        GByteArray *data = qemu_plugin_read_memory_vaddr(vaddr, size);
+
+        if (data) {
+            g_autoptr(GString) out = g_string_new("");
+
+            if (qemu_plugin_mem_is_store(meminfo)) {
+                g_string_append(out, "store: ");
+            } else {
+                g_string_append(out, "load: ");
+            }
+
+            g_string_append_printf(out, "vaddr: 0x%" PRIx64 " data: 0x",
+                                   vaddr);
+            for (size_t i = 0; i < data->len; i++) {
+                g_string_append_printf(out, "%02x", data->data[i]);
+            }
+            g_string_append(out, "\n");
+            qemu_plugin_outs(out->str);
+            g_byte_array_free(data, TRUE);
+        }
+    }
 }
 
 static void vcpu_tb_trans(qemu_plugin_id_t id, struct qemu_plugin_tb *tb)
@@ -86,7 +110,6 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
                                            const qemu_info_t *info,
                                            int argc, char **argv)
 {
-
     for (int i = 0; i < argc; i++) {
         char *opt = argv[i];
         g_auto(GStrv) tokens = g_strsplit(opt, "=", 2);
@@ -117,6 +140,11 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
                 fprintf(stderr, "boolean argument parsing failed: %s\n", opt);
                 return -1;
             }
+        } else if (g_strcmp0(tokens[0], "read") == 0) {
+            if (!qemu_plugin_bool_parse(tokens[0], tokens[1], &do_read)) {
+                fprintf(stderr, "boolean argument parsing failed: %s\n", opt);
+                return -1;
+            }
         } else {
             fprintf(stderr, "option parsing failed: %s\n", opt);
             return -1;
@@ -126,6 +154,11 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
     if (do_inline && do_callback) {
         fprintf(stderr,
                 "can't enable inline and callback counting at the same time\n");
+        return -1;
+    }
+
+    if (do_read && !do_callback) {
+        fprintf(stderr, "can't enable memory reading without callback\n");
         return -1;
     }
 
