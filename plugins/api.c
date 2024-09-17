@@ -527,12 +527,29 @@ GArray *qemu_plugin_get_registers(void)
     return create_register_handles(regs);
 }
 
+bool qemu_plugin_read_cpu_memory_hwaddr(uint64_t addr,
+                                        GByteArray *data, uint64_t len)
+{
+#ifndef CONFIG_USER_ONLY
+    if (len == 0) {
+        return false;
+    }
+
+    g_byte_array_set_size(data, len);
+    cpu_physical_memory_rw(addr, (void *)data->data, len, 0);
+    return true;
+#else
+    return false;
+#endif
+}
+
 int qemu_plugin_read_register(struct qemu_plugin_register *reg, GByteArray *buf)
 {
     g_assert(current_cpu);
 
     return gdb_read_register(current_cpu, buf, GPOINTER_TO_INT(reg) - 1);
 }
+
 
 struct qemu_plugin_scoreboard *qemu_plugin_scoreboard_new(size_t element_size)
 {

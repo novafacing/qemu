@@ -869,6 +869,28 @@ int qemu_plugin_read_register(struct qemu_plugin_register *handle,
                               GByteArray *buf);
 
 /**
+ * qemu_plugin_read_cpu_memory_hwaddr() - read CPU memory from hwaddr
+ *
+ * @addr: A virtual address to read from
+ * @data: A byte array to store data into
+ * @len: The number of bytes to read, starting from @addr
+ *
+ * @len bytes of data is read starting at @addr and stored into @data. If @data
+ * is not large enough to hold @len bytes, it will be expanded to the necessary
+ * size, reallocating if necessary. @len must be greater than 0.
+ *
+ * This function does not ensure writes are flushed prior to reading, so
+ * callers should take care when calling this function in plugin callbacks to
+ * avoid attempting to read data which may not yet be written and should use
+ * the memory callback API instead.
+ *
+ * Returns true on success and false on failure.
+ */
+QEMU_PLUGIN_API
+bool qemu_plugin_read_cpu_memory_hwaddr(uint64_t addr,
+                                          GByteArray *data, size_t len);
+
+/**
  * qemu_plugin_scoreboard_new() - alloc a new scoreboard
  *
  * @element_size: size (in bytes) for one entry
